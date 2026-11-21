@@ -11,32 +11,72 @@ jobs:
   extract:
     runs-on: ubuntu-latest
     steps:
+      - name: Verify Chrona token
+        env:
+          CHRONAX_TOKEN: ${{ secrets.CHRONAX_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$CHRONAX_TOKEN" ]; then
+            echo "ERROR: CHRONAX_TOKEN is missing."
+            exit 1
+          fi
+
+          STATUS=$(curl -sS -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $CHRONAX_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/darkKnight27920/ChronaX-Native)
+
+          echo "GitHub authentication HTTP status: $STATUS"
+
+          if [ "$STATUS" != "200" ]; then
+            echo "ERROR: Token authentication or repository access failed."
+            exit 1
+          fi
+
+          echo "Token authentication successful."
+
       - name: Check out repository
         uses: actions/checkout@v4
         with:
+          repository: darkKnight27920/ChronaX-Native
+          ref: main
           token: ${{ secrets.CHRONAX_TOKEN }}
           persist-credentials: true
 
       - name: Extract project archive
         run: |
           set -euo pipefail
+
           ARCHIVE="Chrona_X_Native_7.1.0.10.00-release.zip"
+
           test -f "$ARCHIVE"
+
           mkdir -p /tmp/chrona-native
+
           unzip -q "$ARCHIVE" -d /tmp/chrona-native
+
           ROOT="/tmp/chrona-native/Chrona_X_Native_7.1.0.10.00-release"
+
           test -d "$ROOT"
+
           cp -a "$ROOT/." .
 
       - name: Commit extracted source
         run: |
           set -euo pipefail
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add -A
+
           if git diff --cached --quiet; then
+            echo "No new changes to commit."
             exit 0
           fi
+
           git commit -m "Extract Chrona X Native project source"
-          git push
+
+          git push origin main
           
